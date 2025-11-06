@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write  # ✅ allow workflow to push updates
+
 env:
   PROJECT_ID: venu-k
   REGION: us-central1
@@ -21,45 +24,42 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ Authenticate with Google Cloud using service account key
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ✅ Set up Google Cloud SDK (installs gcloud CLI)
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # ✅ Configure Docker authentication for Artifact Registry
       - name: Configure Docker authentication for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
           gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ env.REGION }}-docker.pkg.dev
 
-      # ✅ Build Docker image
       - name: Build Docker image
         run: |
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }} my-frontend
 
-      # ✅ Push image to Artifact Registry
       - name: Push image to Artifact Registry
         run: |
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
 
-      # ✅ Update Kubernetes manifests with new image tag
       - name: Update Kubernetes manifests with new image tag
         run: |
           sed -i "s|image: .*$|image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }}|" my-frontend/k8s/deployment.yaml
 
-      # ✅ Commit and push updated manifests
       - name: Commit and push updated manifests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
           git add my-frontend/k8s/deployment.yaml
           git commit -m "Auto-update image to tag ${{ env.IMAGE_TAG }}" || echo "No changes to commit"
-          git push origin main
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
