@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: us-central1-docker.pkg.dev/venu-k/frontend-repo/frontend:v1
+        image: us-central1-docker.pkg.dev/venu-k/frontend-repo/frontend:19131665977
         ports:
         - containerPort: 80
 
