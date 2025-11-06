@@ -29,9 +29,15 @@ jobs:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
-      - name: Configure Docker authentication
+      - name: Activate service account (explicit)
+        run: |
+          gcloud auth activate-service-account artifact-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --key-file=$GOOGLE_GHA_CREDS_PATH
+
+      - name: Configure Docker authentication for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ env.REGION }}-docker.pkg.dev
 
       - name: Build Docker image
         run: |
